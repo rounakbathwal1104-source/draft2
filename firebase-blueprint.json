@@ -1,0 +1,227 @@
+{
+  "entities": {
+    "Post": {
+      "title": "Post",
+      "description": "An anonymous campus confession or tea post",
+      "type": "object",
+      "properties": {
+        "authorId": {
+          "type": "string",
+          "description": "UID of the anonymous author"
+        },
+        "authorAlias": {
+          "type": "string",
+          "description": "Customizable anonymous alias",
+          "maxLength": 40
+        },
+        "authorAvatar": {
+          "type": "string",
+          "description": "Avatar preset key",
+          "maxLength": 60
+        },
+        "content": {
+          "type": "string",
+          "description": "Post text body",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "commentCount": {
+          "type": "number",
+          "description": "Total comments on this post"
+        },
+        "reactionCounts": {
+          "type": "object",
+          "description": "Aggregated counts for Spill, Ded, Sip, Flag, Mood"
+        },
+        "sentiment": {
+          "type": "object",
+          "description": "AI-generated sentiment classification metadata"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of creation"
+        }
+      },
+      "required": ["authorId", "authorAlias", "authorAvatar", "content", "createdAt"]
+    },
+    "Reaction": {
+      "title": "Reaction",
+      "description": "A single user's reaction to a post",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "UID of the reactor"
+        },
+        "reactionType": {
+          "type": "string",
+          "enum": ["spill", "ded", "sip", "flag", "mood"],
+          "description": "The specific reaction type"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when reaction was added"
+        }
+      },
+      "required": ["userId", "reactionType", "createdAt"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A comment on a campus post",
+      "type": "object",
+      "properties": {
+        "postId": {
+          "type": "string",
+          "description": "ID of the parent post"
+        },
+        "authorId": {
+          "type": "string",
+          "description": "UID of the commenter"
+        },
+        "authorAlias": {
+          "type": "string",
+          "description": "Anonymous alias of the commenter",
+          "maxLength": 40
+        },
+        "authorAvatar": {
+          "type": "string",
+          "description": "Avatar preset key",
+          "maxLength": 60
+        },
+        "content": {
+          "type": "string",
+          "description": "Comment text",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of comment creation"
+        }
+      },
+      "required": ["postId", "authorId", "authorAlias", "authorAvatar", "content", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A live campus chat message",
+      "type": "object",
+      "properties": {
+        "authorId": {
+          "type": "string",
+          "description": "UID of the chatter"
+        },
+        "authorAlias": {
+          "type": "string",
+          "description": "Anonymous alias",
+          "maxLength": 40
+        },
+        "authorAvatar": {
+          "type": "string",
+          "description": "Avatar preset key",
+          "maxLength": 60
+        },
+        "content": {
+          "type": "string",
+          "description": "Chat message text",
+          "minLength": 1,
+          "maxLength": 280
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of message"
+        }
+      },
+      "required": ["authorId", "authorAlias", "authorAvatar", "content", "createdAt"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "A moderation report filed by a user",
+      "type": "object",
+      "properties": {
+        "reporterId": {
+          "type": "string",
+          "description": "UID of reporting user"
+        },
+        "targetType": {
+          "type": "string",
+          "enum": ["post", "comment", "chat"],
+          "description": "Type of content reported"
+        },
+        "targetId": {
+          "type": "string",
+          "description": "ID of reported content"
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["harassment", "personal_info", "threats", "spam", "sexual_harassment", "other"],
+          "description": "Categorical reason"
+        },
+        "details": {
+          "type": "string",
+          "description": "Optional additional context",
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["reporterId", "targetType", "targetId", "reason", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Public anonymous profile of a student",
+      "type": "object",
+      "properties": {
+        "alias": {
+          "type": "string",
+          "description": "Customizable anonymous alias",
+          "minLength": 2,
+          "maxLength": 32
+        },
+        "avatar": {
+          "type": "string",
+          "description": "Avatar preset string",
+          "maxLength": 64
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last updated timestamp"
+        }
+      },
+      "required": ["alias", "avatar", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/posts/{postId}": {
+      "schema": { "$ref": "#/entities/Post" },
+      "description": "Unified campus feed posts"
+    },
+    "/posts/{postId}/reactions/{userId}": {
+      "schema": { "$ref": "#/entities/Reaction" },
+      "description": "Individual user reaction per post preventing duplicate inflation"
+    },
+    "/posts/{postId}/comments/{commentId}": {
+      "schema": { "$ref": "#/entities/Comment" },
+      "description": "Comments attached to a specific post"
+    },
+    "/chat_messages/{messageId}": {
+      "schema": { "$ref": "#/entities/ChatMessage" },
+      "description": "Real-time campus chat messages"
+    },
+    "/reports/{reportId}": {
+      "schema": { "$ref": "#/entities/Report" },
+      "description": "Private moderation reports submitted by users"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User anonymous profile preferences"
+    }
+  }
+}

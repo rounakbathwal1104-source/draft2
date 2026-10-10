@@ -1,0 +1,6 @@
+{
+  "name": "Eneyetea",
+  "description": "Anonymous campus community where college students share confessions, campus gossip, and relatable stories with real-time chat and open-source AI insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

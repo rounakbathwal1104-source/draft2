@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() && isOwner(userId) && isValidId(userId)
+        && incoming().alias is string && incoming().alias.size() >= 2 && incoming().alias.size() <= 40
+        && incoming().avatar is string && incoming().avatar.size() <= 64
+        && incoming().updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    // Posts collection - Public feed reading allowed
+    match /posts/{postId} {
+      allow read: if true;
+
+      allow create: if isSignedIn() && isValidId(postId)
+        && incoming().authorId == request.auth.uid
+        && incoming().content is string && incoming().content.size() >= 1 && incoming().content.size() <= 500
+        && incoming().authorAlias is string && incoming().authorAlias.size() <= 40
+        && incoming().authorAvatar is string && incoming().authorAvatar.size() <= 60
+        && incoming().createdAt == request.time;
+
+      allow update: if isSignedIn() && isValidId(postId)
+        && (
+          // Increment comment count or update reaction counts or author edits
+          (incoming().diff(existing()).affectedKeys().hasOnly(['commentCount']))
+          || (incoming().diff(existing()).affectedKeys().hasOnly(['reactionCounts']))
+          || (incoming().diff(existing()).affectedKeys().hasOnly(['sentiment']))
+          || (isOwner(existing().authorId) && incoming().diff(existing()).affectedKeys().hasOnly(['content', 'sentiment']))
+        );
+
+      allow delete: if isSignedIn() && isValidId(postId) && isOwner(existing().authorId);
+
+      // Subcollection: reactions
+      match /reactions/{userId} {
+        allow read: if true;
+        allow create, update: if isSignedIn() && isOwner(userId) && isValidId(userId)
+          && incoming().userId == request.auth.uid
+          && incoming().reactionType in ['spill', 'ded', 'sip', 'flag', 'mood']
+          && incoming().createdAt == request.time;
+        allow delete: if isSignedIn() && isOwner(userId);
+      }
+
+      // Subcollection: comments
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn() && isValidId(commentId)
+          && incoming().authorId == request.auth.uid
+          && incoming().postId == postId
+          && incoming().content is string && incoming().content.size() >= 1 && incoming().content.size() <= 300
+          && incoming().authorAlias is string && incoming().authorAlias.size() <= 40
+          && incoming().authorAvatar is string && incoming().authorAvatar.size() <= 60
+          && incoming().createdAt == request.time;
+        allow update: if false;
+        allow delete: if isSignedIn() && isOwner(existing().authorId);
+      }
+    }
+
+    // Live Campus Chat messages - Public reading allowed
+    match /chat_messages/{messageId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidId(messageId)
+        && incoming().authorId == request.auth.uid
+        && incoming().content is string && incoming().content.size() >= 1 && incoming().content.size() <= 280
+        && incoming().authorAlias is string && incoming().authorAlias.size() <= 40
+        && incoming().authorAvatar is string && incoming().authorAvatar.size() <= 60
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isSignedIn() && isOwner(existing().authorId);
+    }
+
+    // Reports - STRICT PRIVACY: users can ONLY submit reports, NEVER read or list
+    match /reports/{reportId} {
+      allow read: if false;
+      allow create: if isSignedIn() && isValidId(reportId)
+        && incoming().reporterId == request.auth.uid
+        && incoming().targetType in ['post', 'comment', 'chat']
+        && incoming().targetId is string && incoming().targetId.size() <= 128
+        && incoming().reason in ['harassment', 'personal_info', 'threats', 'spam', 'sexual_harassment', 'other']
+        && (!('details' in incoming()) || (incoming().details is string && incoming().details.size() <= 300))
+        && incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+  }
+}
